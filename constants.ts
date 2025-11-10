@@ -1,4 +1,4 @@
-import { Vegetable } from './types';
+import { Vegetable } from './types.ts';
 
 export const VEGETABLES: Vegetable[] = [
   { id: 'veg1', name: 'Tomato', imageUrl: 'https://images.unsplash.com/photo-1582284540020-8acbe03f4924?q=80&w=400&auto=format&fit=crop' },

@@ -1,10 +1,11 @@
+
 import React from 'react';
-import { AppProvider, useAppContext } from './contexts/AppContext';
-import { Header } from './components/Header';
-import { CustomerView } from './views/CustomerView';
-import { SellerView } from './views/SellerView';
-import { LoginView } from './views/LoginView';
-import { UserRole } from './types';
+import { AppProvider, useAppContext } from './contexts/AppContext.tsx';
+import { Header } from './components/Header.tsx';
+import { CustomerView } from './views/CustomerView.tsx';
+import { SellerView } from './views/SellerView.tsx';
+import { LoginView } from './views/LoginView.tsx';
+import { UserRole } from './types.ts';
 
 const AppContent: React.FC = () => {
   const { currentUser } = useAppContext();

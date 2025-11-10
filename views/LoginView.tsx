@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { useAppContext } from '../contexts/AppContext';
-import { UserRole } from '../types';
+import { useAppContext } from '../contexts/AppContext.tsx';
+import { UserRole } from '../types.ts';
 
 const LeafIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>

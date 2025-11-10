@@ -1,6 +1,7 @@
+
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
-import { Vegetable, Order, Bill, User, UserRole, OrderItem, BillItem } from '../types';
-import { VEGETABLES } from '../constants';
+import { Vegetable, Order, Bill, User, UserRole, OrderItem, BillItem } from '../types.ts';
+import { VEGETABLES } from '../constants.ts';
 
 // --- MOCK USER DATABASE ---
 // In a real app, this would be your user database.

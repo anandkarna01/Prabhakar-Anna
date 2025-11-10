@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
-import { useAppContext } from '../contexts/AppContext';
-import { Order, BillItem, Bill } from '../types';
+import { useAppContext } from '../contexts/AppContext.tsx';
+import { Order, BillItem, Bill } from '../types.ts';
 
 // --- ICONS ---
 const DocumentTextIcon: React.FC<{ className?: string }> = ({ className }) => (

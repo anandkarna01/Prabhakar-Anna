@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
-import { useAppContext } from '../contexts/AppContext';
-import { OrderItem } from '../types';
+import { useAppContext } from '../contexts/AppContext.tsx';
+import { OrderItem } from '../types.ts';
 
 const ShoppingCartIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
