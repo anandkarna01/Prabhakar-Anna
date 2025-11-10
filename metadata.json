@@ -1,0 +1,5 @@
+{
+  "name": "Prabha Vegetables",
+  "description": "An interactive web application for Prabha Vegetables, allowing customers to place orders and the seller to manage them and generate bills.",
+  "requestFramePermissions": []
+}
