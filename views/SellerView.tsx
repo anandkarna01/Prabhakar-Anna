@@ -1,7 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../contexts/AppContext.tsx';
-import { Order, BillItem, Bill } from '../types.ts';
+import { Order, BillItem, Bill, Vegetable } from '../types.ts';
+import { api } from '../api.ts';
 
 // --- ICONS ---
 const DocumentTextIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -34,14 +35,18 @@ const PlusCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 // --- COMPONENTS ---
 const AddVegetableForm: React.FC = () => {
-    const { addVegetable } = useAppContext();
+    const { addLocalVegetable } = useAppContext();
     const [name, setName] = useState('');
+    const [isAdding, setIsAdding] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (name.trim()) {
-            addVegetable(name);
+            setIsAdding(true);
+            const newVeg = await api.addVegetable(name);
+            addLocalVegetable(newVeg);
             setName('');
+            setIsAdding(false);
         } else {
             alert('Please provide a vegetable name.');
         }
@@ -64,13 +69,15 @@ const AddVegetableForm: React.FC = () => {
                         placeholder="e.g., Cauliflower"
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm"
                         required
+                        disabled={isAdding}
                     />
                 </div>
                 <button
                     type="submit"
-                    className="w-full sm:w-auto bg-green-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-300"
+                    disabled={isAdding}
+                    className="w-full sm:w-auto bg-green-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-300 disabled:bg-gray-400"
                 >
-                    Add
+                    {isAdding ? 'Adding...' : 'Add'}
                 </button>
             </form>
         </div>
@@ -78,12 +85,15 @@ const AddVegetableForm: React.FC = () => {
 };
 
 
-const PriceManager: React.FC = () => {
-    const { vegetables, vegetablePrices, setVegetablePrice } = useAppContext();
+const PriceManager: React.FC<{
+    vegetables: Vegetable[];
+    prices: Record<string, number>;
+    onPriceChange: (vegId: string, price: number) => void;
+}> = ({ vegetables, prices, onPriceChange }) => {
 
     const handlePriceChange = (vegId: string, value: string) => {
         const price = parseFloat(value);
-        setVegetablePrice(vegId, isNaN(price) || price < 0 ? 0 : price);
+        onPriceChange(vegId, isNaN(price) || price < 0 ? 0 : price);
     };
     
     return (
@@ -101,7 +111,7 @@ const PriceManager: React.FC = () => {
                             <input
                                 type="number"
                                 id={`price-${veg.id}`}
-                                value={vegetablePrices[veg.id] || ''}
+                                value={prices[veg.id] || ''}
                                 onChange={e => handlePriceChange(veg.id, e.target.value)}
                                 placeholder="0.00"
                                 className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md focus:ring-orange-500 focus:border-orange-500 sm:text-sm border-gray-300"
@@ -114,18 +124,17 @@ const PriceManager: React.FC = () => {
     )
 }
 
-const BillPreview: React.FC<{ order: Order; onBillSend: (order: Order) => void }> = ({ order, onBillSend }) => {
-  const { vegetablePrices } = useAppContext();
+const BillPreview: React.FC<{ order: Order; prices: Record<string, number>; onBillSend: (order: Order) => void }> = ({ order, prices, onBillSend }) => {
   const { billItems, totalCost, isFullyPriced } = useMemo(() => {
     let isPriced = true;
     const billItems: BillItem[] = order.items.map(item => {
-      const pricePerKg = vegetablePrices[item.vegetable.id] || 0;
+      const pricePerKg = prices[item.vegetable.id] || 0;
       if(pricePerKg <= 0) isPriced = false;
       return { ...item, pricePerKg, totalPrice: item.quantity * pricePerKg };
     });
     const totalCost = billItems.reduce((sum, item) => sum + item.totalPrice, 0);
     return { billItems, totalCost, isFullyPriced: isPriced };
-  }, [order.items, vegetablePrices]);
+  }, [order.items, prices]);
 
   return (
     <div className="p-6 pt-4 border-t border-gray-200 bg-gray-50/50">
@@ -156,15 +165,66 @@ const BillPreview: React.FC<{ order: Order; onBillSend: (order: Order) => void }
 };
 
 export const SellerView: React.FC = () => {
-  const { orders, addBill, bills } = useAppContext();
+  const { vegetables } = useAppContext();
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [allBills, setAllBills] = useState<Bill[]>([]);
+  const [vegetablePrices, setVegetablePrices] = useState<Record<string, number>>({});
+  
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [expandedBilledOrderId, setExpandedBilledOrderId] = useState<string | null>(null);
   const [expandedCustomerName, setExpandedCustomerName] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'prices' | 'orders' | 'history'>('prices');
+  
+  // Fetch initial prices
+  useEffect(() => {
+      api.getVegetablePrices().then(setVegetablePrices);
+  }, []);
+
+  // Fetch all orders and poll for new ones
+  useEffect(() => {
+    if (currentView !== 'orders') return;
+    
+    let isMounted = true;
+    const fetchOrders = async () => {
+        const orders = await api.getAllOrders();
+        if(isMounted) {
+            setAllOrders(orders);
+        }
+    };
+    
+    fetchOrders(); // Initial fetch
+    const intervalId = setInterval(fetchOrders, 5000); // Poll every 5 seconds
+    
+    return () => {
+        isMounted = false;
+        clearInterval(intervalId);
+    };
+  }, [currentView]);
+
+  // Fetch all bills when history is viewed
+  useEffect(() => {
+    if(currentView === 'history') {
+      api.getAllBills().then(setAllBills);
+    }
+  }, [currentView, allOrders]); // Re-fetch bills if orders change (i.e., new bill created)
+
+
+  const handlePriceChange = async (vegId: string, price: number) => {
+    setVegetablePrices(prev => ({ ...prev, [vegId]: price }));
+    await api.setVegetablePrice(vegId, price);
+  };
+
+  const handleBillSend = async (order: Order) => {
+    await api.createBill(order);
+    setExpandedOrderId(null);
+    // Refetch orders to update the UI
+    const orders = await api.getAllOrders();
+    setAllOrders(orders);
+  };
 
   const { activeOrdersByCustomer, billedOrdersByCustomer } = useMemo(() => {
-    const active = orders.filter(o => !o.isBilled).sort((a,b) => a.timestamp.getTime() - b.timestamp.getTime());
-    const billed = orders.filter(o => o.isBilled).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
+    const active = allOrders.filter(o => !o.isBilled).sort((a,b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const billed = allOrders.filter(o => o.isBilled).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
     
     const groupOrdersByCustomer = (orderList: Order[]): Record<string, Order[]> => {
       return orderList.reduce((acc, order) => {
@@ -177,7 +237,7 @@ export const SellerView: React.FC = () => {
         activeOrdersByCustomer: groupOrdersByCustomer(active), 
         billedOrdersByCustomer: groupOrdersByCustomer(billed) 
     };
-  }, [orders]);
+  }, [allOrders]);
 
   const handleToggleExpand = (orderId: string) => {
     setExpandedOrderId(prevId => (prevId === orderId ? null : orderId));
@@ -219,7 +279,7 @@ export const SellerView: React.FC = () => {
       {currentView === 'prices' && (
         <div className="animate-fade-in-up">
             <AddVegetableForm />
-            <PriceManager />
+            <PriceManager vegetables={vegetables} prices={vegetablePrices} onPriceChange={handlePriceChange}/>
         </div>
       )}
 
@@ -229,7 +289,8 @@ export const SellerView: React.FC = () => {
                 <h3 className="text-2xl font-semibold text-gray-700 mb-4 border-b-2 pb-2">Orders to be Processed</h3>
                 {Object.keys(activeOrdersByCustomer).length > 0 ? (
                     <div className="space-y-4">
-                        {Object.entries(activeOrdersByCustomer).map(([customerName, customerOrders]) => (
+                        {/* Fix: Explicitly type the destructured array from Object.entries */}
+                        {Object.entries(activeOrdersByCustomer).map(([customerName, customerOrders]: [string, Order[]]) => (
                              <div key={customerName} className="bg-white rounded-lg shadow-md p-5">
                                 <h4 className="text-lg font-bold text-gray-800 mb-3">{customerName}</h4>
                                 <div className="space-y-2">
@@ -242,10 +303,7 @@ export const SellerView: React.FC = () => {
                                                 </svg>
                                             </button>
                                             {expandedOrderId === order.id && (
-                                                <BillPreview order={order} onBillSend={(o) => {
-                                                addBill(o);
-                                                setExpandedOrderId(null);
-                                                }} />
+                                                <BillPreview order={order} prices={vegetablePrices} onBillSend={handleBillSend} />
                                             )}
                                         </div>
                                     ))}
@@ -253,7 +311,7 @@ export const SellerView: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                ) : <div className="bg-white mt-8 p-8 rounded-lg shadow-md text-center text-gray-500"><p>All active orders have been billed!</p></div>}
+                ) : <div className="bg-white mt-8 p-8 rounded-lg shadow-md text-center text-gray-500"><p>No active orders. Waiting for customers...</p></div>}
             </div>
         </div>
       )}
@@ -263,7 +321,8 @@ export const SellerView: React.FC = () => {
             <h3 className="text-2xl text-center font-semibold text-gray-700 mb-4 pb-2">Completed Transactions</h3>
             {Object.keys(billedOrdersByCustomer).length > 0 ? (
                 <div className="space-y-4">
-                    {Object.entries(billedOrdersByCustomer).map(([customerName, customerOrders]) => (
+                    {/* Fix: Explicitly type the destructured array from Object.entries */}
+                    {Object.entries(billedOrdersByCustomer).map(([customerName, customerOrders]: [string, Order[]]) => (
                         <div key={customerName} className="bg-white rounded-lg shadow-lg overflow-hidden">
                             <button 
                                 onClick={() => setExpandedCustomerName(prev => prev === customerName ? null : customerName)}
@@ -284,7 +343,7 @@ export const SellerView: React.FC = () => {
                                 <div className="p-5 border-t border-gray-200">
                                     <div className="space-y-2">
                                         {customerOrders.map(order => {
-                                            const bill = bills.find(b => b.orderId === order.id);
+                                            const bill = allBills.find(b => b.orderId === order.id);
                                             return (
                                                 <div key={order.id} className="rounded-lg border border-gray-200">
                                                     <button onClick={() => handleToggleBilledExpand(order.id)} className="w-full text-left p-4 hover:bg-gray-50 transition-colors duration-200 flex justify-between items-center">

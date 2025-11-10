@@ -14,17 +14,20 @@ const LoginForm: React.FC<{ role: UserRole }> = ({ role }) => {
     const [name, setName] = useState('');
     const [mobile, setMobile] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         if (!name.trim() || !mobile.trim()) {
             setError('Both name and mobile number are required.');
             return;
         }
-        const success = login(name, mobile, role);
+        setIsLoading(true);
+        const success = await login(name, mobile, role);
         if (!success) {
             setError('Invalid credentials. Please check your details and try again.');
+            setIsLoading(false);
         }
     };
 
@@ -44,7 +47,8 @@ const LoginForm: React.FC<{ role: UserRole }> = ({ role }) => {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder={isSeller ? "Seller" : "Your Name or Shop Name"}
-                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                        disabled={isLoading}
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm disabled:bg-gray-100"
                     />
                 </div>
             </div>
@@ -61,7 +65,8 @@ const LoginForm: React.FC<{ role: UserRole }> = ({ role }) => {
                         value={mobile}
                         onChange={(e) => setMobile(e.target.value)}
                         placeholder={isSeller ? "0000000000" : "10-digit mobile number"}
-                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                        disabled={isLoading}
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm disabled:bg-gray-100"
                     />
                 </div>
             </div>
@@ -73,9 +78,10 @@ const LoginForm: React.FC<{ role: UserRole }> = ({ role }) => {
             <div>
                 <button
                     type="submit"
-                    className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${isSeller ? 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500' : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'} focus:outline-none focus:ring-2 focus:ring-offset-2`}
+                    disabled={isLoading}
+                    className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${isSeller ? 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500' : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'} focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-wait`}
                 >
-                    Sign in
+                    {isLoading ? 'Signing in...' : 'Sign in'}
                 </button>
             </div>
         </form>

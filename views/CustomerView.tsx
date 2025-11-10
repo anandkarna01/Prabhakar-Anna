@@ -1,7 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../contexts/AppContext.tsx';
-import { OrderItem } from '../types.ts';
+import { OrderItem, Order, Bill } from '../types.ts';
+import { api } from '../api.ts';
 
 const ShoppingCartIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -24,20 +25,31 @@ const HistoryIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 
 export const CustomerView: React.FC = () => {
-  const { vegetables, addOrder, bills, orders, currentUser } = useAppContext();
+  const { vegetables, currentUser } = useAppContext();
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [currentView, setCurrentView] = useState<'order' | 'history' | 'bills'>('order');
   const [expandedBillId, setExpandedBillId] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const [myBills, setMyBills] = useState<Bill[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataVersion, setDataVersion] = useState(0); // Used to trigger refetches
 
-  const myOrders = useMemo(() => 
-    orders.filter(o => o.userId === currentUser?.id).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime())
-  , [orders, currentUser]);
-  
-  const myBills = useMemo(() => 
-    bills.filter(b => b.userId === currentUser?.id).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime())
-  , [bills, currentUser]);
+  useEffect(() => {
+    if (!currentUser) return;
+    setIsLoading(true);
+    const fetchData = async () => {
+        const [orders, bills] = await Promise.all([
+            api.getOrdersForUser(currentUser.id),
+            api.getBillsForUser(currentUser.id)
+        ]);
+        setMyOrders(orders.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
+        setMyBills(bills.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
+        setIsLoading(false);
+    };
+    fetchData();
+  }, [currentUser, dataVersion]);
 
   const handleQuantityChange = (vegId: string, value: string) => {
     const quantity = parseFloat(value);
@@ -47,7 +59,8 @@ export const CustomerView: React.FC = () => {
     }));
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (!currentUser) return;
     const items: OrderItem[] = (Object.entries(quantities) as [string, number][])
       .map(([vegId, quantity]) => {
         if (quantity > 0) {
@@ -59,10 +72,11 @@ export const CustomerView: React.FC = () => {
       .filter((item): item is OrderItem => item !== null);
 
     if (items.length > 0) {
-      addOrder(items);
+      await api.placeOrder(items, currentUser);
       setQuantities({});
       setOrderPlaced(true);
       setTimeout(() => setOrderPlaced(false), 5000);
+      setDataVersion(v => v + 1); // Trigger refetch
       setCurrentView('history');
     } else {
       alert("Please add at least one vegetable to your order.");
@@ -157,7 +171,7 @@ export const CustomerView: React.FC = () => {
       {currentView === 'history' && (
          <div className="max-w-3xl mx-auto space-y-4 animate-fade-in-up">
             <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Your Order History</h2>
-            {myOrders.length > 0 ? myOrders.map(order => (
+            {isLoading ? <p className="text-center text-gray-500">Loading history...</p> : myOrders.length > 0 ? myOrders.map(order => (
                 <div key={order.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
                     <button onClick={() => handleToggleOrder(order.id)} className="w-full text-left p-6 hover:bg-gray-50 transition-colors duration-200 flex justify-between items-center">
                         <div>
@@ -206,7 +220,7 @@ export const CustomerView: React.FC = () => {
       {currentView === 'bills' && (
          <div className="max-w-3xl mx-auto space-y-4 animate-fade-in-up">
             <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Your Bills</h2>
-            {myBills.length > 0 ? myBills.map(bill => (
+            {isLoading ? <p className="text-center text-gray-500">Loading bills...</p> : myBills.length > 0 ? myBills.map(bill => (
                 <div key={bill.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
                     <button onClick={() => handleToggleBill(bill.id)} className="w-full text-left p-6 hover:bg-gray-50 transition-colors duration-200 flex justify-between items-center">
                         <div>
