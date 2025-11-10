@@ -1,7 +1,15 @@
-// supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://sdvfusqulliotvlodebm.supabase.co'; // <-- Paste your URL from Supabase here
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdmZ1c3F1bGxpb3R2bG9kZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3OTUxMjQsImV4cCI6MjA3ODM3MTEyNH0.Tpr0ANIhoHdPtOsU3UE4o9-oFqE6-Bs3AiGs1wzbHI8'; // <-- Paste your public anon key from Supabase here
+// IMPORTANT: Replace these with your actual Supabase URL and Anon Key
+// You can find these in your Supabase project settings under "API"
+const supabaseUrl = 'YOUR_SUPABASE_PROJECT_URL';
+const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+
+if (!supabaseUrl || supabaseUrl === 'YOUR_SUPABASE_PROJECT_URL') {
+    console.error("Supabase URL is not configured. Please add it to supabaseClient.ts");
+}
+if (!supabaseAnonKey || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY') {
+    console.error("Supabase Anon Key is not configured. Please add it to supabaseClient.ts");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
