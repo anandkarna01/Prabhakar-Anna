@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { Vegetable, Order, Bill, User, UserRole, OrderItem, BillItem } from '../types.ts';
 import { VEGETABLES } from '../constants.ts';
 
@@ -26,6 +26,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const APP_STATE_STORAGE_KEY = 'prabha-vegetables-state';
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [vegetables, setVegetables] = useState<Vegetable[]>(VEGETABLES);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -33,6 +35,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [vegetablePrices, setVegetablePrices] = useState<Record<string, number>>({});
+
+  // Effect to load state from localStorage on initial mount
+  useEffect(() => {
+    try {
+      const savedStateJSON = localStorage.getItem(APP_STATE_STORAGE_KEY);
+      if (savedStateJSON) {
+        const savedState = JSON.parse(savedStateJSON);
+        
+        // When loading from JSON, date strings must be converted back to Date objects.
+        const revivedOrders = savedState.orders?.map((o: Order) => ({...o, timestamp: new Date(o.timestamp)})) || [];
+        const revivedBills = savedState.bills?.map((b: Bill) => ({...b, timestamp: new Date(b.timestamp)})) || [];
+
+        setVegetables(savedState.vegetables || VEGETABLES);
+        setOrders(revivedOrders);
+        setBills(revivedBills);
+        setUsers(savedState.users || MOCK_USERS);
+        setCurrentUser(savedState.currentUser || null);
+        setVegetablePrices(savedState.vegetablePrices || {});
+      }
+    } catch (error) {
+      console.error("Failed to load state from localStorage", error);
+    }
+  }, []);
+
+  // Effect to save state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+        const stateToSave = {
+            vegetables,
+            orders,
+            bills,
+            users,
+            currentUser,
+            vegetablePrices,
+        };
+        localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(stateToSave));
+    } catch (error) {
+        console.error("Failed to save state to localStorage", error);
+    }
+  }, [vegetables, orders, bills, users, currentUser, vegetablePrices]);
+
 
   const login = useCallback((name: string, mobile: string, role: UserRole): boolean => {
     // Find existing user or create a new one for customers
@@ -110,7 +153,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newVegetable: Vegetable = {
       id: `veg-${Date.now()}`,
       name,
-      imageUrl: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?q=80&w=400&auto=format&fit=crop', // Generic placeholder
+      imageUrl: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?q=80&w=400&auto-format&fit=crop', // Generic placeholder
     };
     setVegetables(prev => [...prev, newVegetable]);
   }, []);
