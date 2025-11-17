@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../contexts/AppContext.tsx';
 import { Order, BillItem, Bill, Vegetable } from '../types.ts';
@@ -180,34 +179,32 @@ export const SellerView: React.FC = () => {
       api.getVegetablePrices().then(setVegetablePrices);
   }, []);
 
-  // Fetch all orders and poll for new ones
+  // Fetch initial data and set up real-time subscription for orders
   useEffect(() => {
-    if (currentView !== 'orders') return;
-    
-    let isMounted = true;
-    const fetchOrders = async () => {
-        const orders = await api.getAllOrders();
-        if(isMounted) {
-            setAllOrders(orders);
-        }
+    // This function fetches the latest orders and bills.
+    const refreshData = () => {
+      api.getAllOrders().then(orders => {
+        setAllOrders(orders);
+        // Also refresh bills when orders change, as a new bill might have been created.
+        api.getAllBills().then(setAllBills);
+      });
     };
-    
-    fetchOrders(); // Initial fetch
-    const intervalId = setInterval(fetchOrders, 5000); // Poll every 5 seconds
-    
+
+    // Fetch initial data when the component mounts.
+    refreshData();
+
+    // Set up a real-time subscription to the orders table.
+    // The `refreshData` function will be called whenever an order is created, updated, or deleted.
+    const subscription = api.subscribeToOrders(refreshData);
+
+    // The cleanup function will run when the component unmounts.
+    // This is important to prevent memory leaks.
     return () => {
-        isMounted = false;
-        clearInterval(intervalId);
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
-  }, [currentView]);
-
-  // Fetch all bills when history is viewed
-  useEffect(() => {
-    if(currentView === 'history') {
-      api.getAllBills().then(setAllBills);
-    }
-  }, [currentView, allOrders]); // Re-fetch bills if orders change (i.e., new bill created)
-
+  }, []); // The empty dependency array means this effect runs only once, on mount.
 
   const handlePriceChange = async (vegId: string, price: number) => {
     setVegetablePrices(prev => ({ ...prev, [vegId]: price }));
@@ -217,9 +214,7 @@ export const SellerView: React.FC = () => {
   const handleBillSend = async (order: Order) => {
     await api.createBill(order);
     setExpandedOrderId(null);
-    // Refetch orders to update the UI
-    const orders = await api.getAllOrders();
-    setAllOrders(orders);
+    // No need to manually refetch; the real-time subscription handles it automatically.
   };
 
   const { activeOrdersByCustomer, billedOrdersByCustomer } = useMemo(() => {

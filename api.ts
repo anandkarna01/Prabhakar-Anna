@@ -211,5 +211,37 @@ export const api = {
       totalCost: createdBill.total_cost,
       timestamp: new Date(createdBill.timestamp),
     };
-  }
+  },
+  
+  subscribeToOrders(onOrdersChanged: () => void): { unsubscribe: () => void } | null {
+    if (!supabase) {
+      console.warn("Supabase not configured, real-time subscription disabled.");
+      return null;
+    }
+
+    const channel = supabase
+      .channel('public-orders-channel')
+      .on(
+        'postgres_changes', 
+        { event: '*', schema: 'public', table: 'orders' }, 
+        (payload) => {
+          console.log('Order change received!', payload);
+          onOrdersChanged();
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to real-time order updates!');
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Failed to subscribe to orders channel:', err);
+        }
+      });
+
+    const unsubscribe = () => {
+      supabase.removeChannel(channel);
+    };
+
+    return { unsubscribe };
+  },
 };
