@@ -30,7 +30,7 @@ const ConfigurationRequiredScreen: React.FC = () => (
             <strong>Open <code className="bg-gray-200 text-red-600 font-mono p-1 rounded">supabaseClient.ts</code>:</strong> In the file explorer on the left, find and open this file.
           </li>
           <li>
-            <strong>Paste Your Credentials:</strong> Paste your copied URL and Key into the placeholder variables inside that file and save it. The app will automatically connect.
+            <strong>Paste Your Credentials:</strong> Replace the <code className="bg-gray-200 text-red-600 font-mono p-1 rounded">'PASTE_YOUR_PROJECT_URL_HERE'</code> and <code className="bg-gray-200 text-red-600 font-mono p-1 rounded">'PASTE_YOUR_ANON_KEY_HERE'</code> placeholders with your actual URL and Key, then save the file. The app will automatically connect.
           </li>
         </ol>
       </div>
